@@ -46,42 +46,59 @@ e_a    = 1.286054699      # promedio horario de la presión real de vapor  kPa
 u_2    = v_air            # promedio horario de la velocidad del viento  m/s
 
 ## ----- Pasos -----
-dt = 0.1  
+dt = 1  
 dx = 2*v_air*dt
 dy = (4*k_air*dt)**0.5
 
 # --- Vectores y matrices ---
 x = np.arange(0, 100/dx, dx)  # Vector posición en el largo del río [m]
-t = np.arange(0, 1800 + dt, dt)  # Vector tiempo [s]
+t = np.arange(0, 100   , dt)  # Vector tiempo [s]
 y = np.arange(0, 100/dx, dy)  # Vector posición en el ancho del río [m]
 
-nx = int(100 / dx)        # Puntos en x
-ny = int(100 / dy)        # Puntos en y
-nt = 100        # Pasos de tiempo
-
 # %% Inicialización de la malla
-T = np.ones((nx, ny, nt)) * 293  # Temp. inicial homogénea (293 K)
+T = np.ones((len(x), len(y),len(t))) * 293  # Temp. inicial homogénea (293 K)
+
+# Condicion de borde más caliente.
+for k in range(0, int(len(t)/2)):
+    for i in range(0, len(x)):
+        T[i,0,k]=300     
+
 
 # --- Completar la matriz A con diferencias finitas ---
-for k in range(len(t) - 1):  # Iterar en el tiempo
-    for j in range(len(y)):
+for k in range(1, len(t) - 1):  # Iterar en el tiempo
+    for j in range(1, len(y) - 1):
         for i in range(1, len(x)):  # Empezar desde i=1 para evitar problemas con i-1
             #Término radiación del suelo
-            rad_suelo = A*e_soil*sigma*(T_soil**4 - T[i, j, k]**4)
+            #rad_suelo = A*e_soil*sigma*(T_soil**4 - T[i, j, k]**4)
 
             # Albedo , absorbancias, reflectancia
-            rad_solar = a_soil*tau*Gr*A - alpha_soil*tau*Gr*A + alpha_air*Gr*A - rho_air*Gr*A
+            #rad_solar = a_soil*tau*Gr*A - alpha_soil*tau*Gr*A + alpha_air*Gr*A - rho_air*Gr*A
 
             # Covection
-            convec = - h_out*A*(T[i,j,k] - T_air)
+            #convec = - h_out*A*(T[i,j,k] - T_air)
         
-            # Advection
+            # Difusión
             advec = -rho*cp*A*v_air*(1/dx)*(T[i,j,k] - T[i-1 , j, k])
 
             # Conduction 
             cond = k_air*V*(1/dy**2)*(T[i, j+1, k] - 2*T[i, j, k] + T[i, j-1, k])         
 
             # TOTAL
-            T[i, j, k + 1] = T[i, j, k] - dt/(rho*cp*V)*(rad_suelo + rad_solar + convec + advec + cond)
+            T[i, j, k + 1] = T[i, j, k] + dt/(rho*cp*V)*(advec + cond)
 
 
+# %% Graficar y animar
+fig, ax = plt.subplots()
+cax = ax.imshow(T[:, :, 0], extent=[0, len(x), 0, len(y)], origin='lower', aspect='auto', cmap='hot')
+cbar = plt.colorbar(cax, ax=ax, label='T [K]')
+
+ax.set_ylabel('Posición en el largo del río [m]')
+ax.set_xlabel('Posición en el ancho del río [m]')
+
+for k in range(len(t)):
+    cax.set_data(T[:, :, k])  # Actualizar solo los datos de la gráfica
+    cax.set_clim(vmin=T.min(), vmax=T.max())  # Asegurar que los colores estén bien escalados
+    plt.title(f'Animación en el tiempo: {t[k]} [s]')
+    plt.pause(0.1)  # Pausa para que se vea la animación
+
+plt.show()  # Mantener la animación visible al final

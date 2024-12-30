@@ -20,13 +20,13 @@ tau = 0.9                # Transmitancia atmosférica
 rho_air = 0.0            # Reflectancia del aire
 
 # %% Discretización y malla
-dt = 0.1  
+dt = 1  
 dx = 2*v_air*dt
 dy = (4*k*dt)**0.5
 
 nx = int(100 / dx)        # Puntos en x
 ny = int(100 / dy)        # Puntos en y
-nt = 100        # Pasos de tiempo
+nt = 10                   # Pasos de tiempo
 
 max_temp = 350  # Límite superior de temperatura [K]
 min_temp = 273  # Límite inferior de temperatura (0°C en Kelvin)

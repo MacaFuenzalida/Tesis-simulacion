@@ -28,8 +28,8 @@ for k in range(k_derrame):
         A[0, j, k] = 10  # Concentración inicial del derrame [mol/m³]
 
 # %% Completar la matriz A con diferencias finitas
-for k in range(len(t) - 1):  # Iterar en el tiempo
-    for j in range(len(y)):
+for k in range(0, len(t) - 1):  # Iterar en el tiempo
+    for j in range(0, len(y)):
         for i in range(1, len(x)):  # Empezar desde i=1 para evitar problemas con i-1
             A[i, j, k + 1] = A[i, j, k] - v * (dt / dx) * (A[i, j, k] - A[i - 1, j, k])
 
