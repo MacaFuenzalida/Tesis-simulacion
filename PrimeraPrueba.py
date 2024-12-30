@@ -28,9 +28,16 @@ Pr        = 0.7296         # Prandtl Number
 v_air     = 10*1000/3600   # velocity air m/s
 k_air     = 0.02551        # Conductivity W / m*K
 
+h_out     = 0.015292       #  W / m^2 * K
+
+## ----- Temperatura -----
+T_soil = 297.15            # K
+T_air  = 298.15            # K
+
+
 ## ----- Green Area -----
 # ET_0
-Rn     = Gr*3600/10**(6) # Radiación Neta  MJ / m^2*h
+Rn     = Gr*3600/10**(6)  # Radiación Neta  MJ / m^2*h
 G      = 0.1*Rn           # Densidad flujo calor del suelo  MJ / m^2*h
 Delta  = 0.1447326371     # ** (T) pendiente de la curva de presión de saturación de vapor  kPa / °C
 gamma  = 0.000665         # constante psicrométrica  kPa / °C
@@ -48,15 +55,33 @@ x = np.arange(0, 100/dx, dx)  # Vector posición en el largo del río [m]
 t = np.arange(0, 1800 + dt, dt)  # Vector tiempo [s]
 y = np.arange(0, 100/dx, dy)  # Vector posición en el ancho del río [m]
 
-A = np.zeros((len(x), len(y), len(t)))  # Matriz de ceros (mallado)
+nx = int(100 / dx)        # Puntos en x
+ny = int(100 / dy)        # Puntos en y
+nt = 100        # Pasos de tiempo
 
-# --- Condición inicial ---
-for i in range(len(x)):
-    for j in range(len(y)):
-        A[i, j, 1] = 298   #K
+# %% Inicialización de la malla
+T = np.ones((nx, ny, nt)) * 293  # Temp. inicial homogénea (293 K)
 
 # --- Completar la matriz A con diferencias finitas ---
-#for k in range(len(t) - 1):  # Iterar en el tiempo
-#    for j in range(len(y)):
-#        for i in range(1, len(x)):  # Empezar desde i=1 para evitar problemas con i-1
-#            A[i, j, k + 1] = A[i, j, k] - 
+for k in range(len(t) - 1):  # Iterar en el tiempo
+    for j in range(len(y)):
+        for i in range(1, len(x)):  # Empezar desde i=1 para evitar problemas con i-1
+            #Término radiación del suelo
+            rad_suelo = A*e_soil*sigma*(T_soil**4 - T[i, j, k]**4)
+
+            # Albedo , absorbancias, reflectancia
+            rad_solar = a_soil*tau*Gr*A - alpha_soil*tau*Gr*A + alpha_air*Gr*A - rho_air*Gr*A
+
+            # Covection
+            convec = - h_out*A*(T[i,j,k] - T_air)
+        
+            # Advection
+            advec = -rho*cp*A*v_air*(1/dx)*(T[i,j,k] - T[i-1 , j, k])
+
+            # Conduction 
+            cond = k_air*V*(1/dy**2)*(T[i, j+1, k] - 2*T[i, j, k] + T[i, j-1, k])         
+
+            # TOTAL
+            T[i, j, k + 1] = T[i, j, k] - dt/(rho*cp*V)*(rad_suelo + rad_solar + convec + advec + cond)
+
+
