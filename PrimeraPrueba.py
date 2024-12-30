@@ -53,15 +53,15 @@ dy = (4*k_air*dt)**0.5
 # --- Vectores y matrices ---
 x = np.arange(0, 100/dx, dx)  # Vector posición en el largo del río [m]
 t = np.arange(0, 100   , dt)  # Vector tiempo [s]
-y = np.arange(0, 100/dx, dy)  # Vector posición en el ancho del río [m]
+y = np.arange(0, 100/dy, dy)  # Vector posición en el ancho del río [m]
 
 # %% Inicialización de la malla
 T = np.ones((len(x), len(y),len(t))) * 293  # Temp. inicial homogénea (293 K)
 
 # Condicion de borde más caliente.
 for k in range(0, int(len(t)/2)):
-    for i in range(0, len(x)):
-        T[i,0,k]=300     
+    for j in range(0, len(y)):
+        T[0,j,k]=300     
 
 
 # --- Completar la matriz A con diferencias finitas ---
@@ -69,13 +69,13 @@ for k in range(1, len(t) - 1):  # Iterar en el tiempo
     for j in range(1, len(y) - 1):
         for i in range(1, len(x)):  # Empezar desde i=1 para evitar problemas con i-1
             #Término radiación del suelo
-            #rad_suelo = A*e_soil*sigma*(T_soil**4 - T[i, j, k]**4)
+            rad_suelo = A*e_soil*sigma*(T_soil**4 - T[i, j, k]**4)
 
             # Albedo , absorbancias, reflectancia
-            #rad_solar = a_soil*tau*Gr*A - alpha_soil*tau*Gr*A + alpha_air*Gr*A - rho_air*Gr*A
+            rad_solar = a_soil*tau*Gr*A - alpha_soil*tau*Gr*A + alpha_air*Gr*A - rho_air*Gr*A
 
             # Covection
-            #convec = - h_out*A*(T[i,j,k] - T_air)
+            convec = - h_out*A*(T[i,j,k] - T_air)
         
             # Difusión
             advec = -rho*cp*A*v_air*(1/dx)*(T[i,j,k] - T[i-1 , j, k])
@@ -84,7 +84,7 @@ for k in range(1, len(t) - 1):  # Iterar en el tiempo
             cond = k_air*V*(1/dy**2)*(T[i, j+1, k] - 2*T[i, j, k] + T[i, j-1, k])         
 
             # TOTAL
-            T[i, j, k + 1] = T[i, j, k] + dt/(rho*cp*V)*(advec + cond)
+            T[i, j, k + 1] = T[i, j, k] + dt/(rho*cp*V)*(rad_suelo + rad_solar + convec + advec + cond)
 
 
 # %% Graficar y animar
