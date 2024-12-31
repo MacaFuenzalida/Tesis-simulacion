@@ -50,6 +50,9 @@ dt = 1
 dx = 2*v_air*dt
 dy = (4*k_air*dt)**0.5
 
+print(f'dx = {dx}')
+print(f'dy = {dy}')
+
 # --- Vectores y matrices ---
 x = np.arange(0, 100/dx, dx)  # Vector posición en el largo del río [m]
 t = np.arange(0, 100   , dt)  # Vector tiempo [s]
@@ -86,19 +89,35 @@ for k in range(1, len(t) - 1):  # Iterar en el tiempo
             # TOTAL
             T[i, j, k + 1] = T[i, j, k] + dt/(rho*cp*V)*(rad_suelo + rad_solar + convec + advec + cond)
 
-
 # %% Graficar y animar
 fig, ax = plt.subplots()
-cax = ax.imshow(T[:, :, 0], extent=[0, len(x), 0, len(y)], origin='lower', aspect='auto', cmap='hot')
+cax = ax.imshow(T[:, :, 0].T, extent=[0, len(x), 0, len(y)], origin='lower', aspect='auto', cmap='hot')
 cbar = plt.colorbar(cax, ax=ax, label='T [K]')
 
-ax.set_ylabel('Posición en el largo del río [m]')
-ax.set_xlabel('Posición en el ancho del río [m]')
+ax.set_xlabel('Largo del dominio (x) [m]')
+ax.set_ylabel('Ancho del dominio (y) [m]')
 
 for k in range(len(t)):
-    cax.set_data(T[:, :, k])  # Actualizar solo los datos de la gráfica
+    cax.set_data(T[:, :, k].T)  # Actualizar solo los datos de la gráfica
     cax.set_clim(vmin=T.min(), vmax=T.max())  # Asegurar que los colores estén bien escalados
     plt.title(f'Animación en el tiempo: {t[k]} [s]')
     plt.pause(0.1)  # Pausa para que se vea la animación
 
 plt.show()  # Mantener la animación visible al final
+
+
+# %% Graficar y animar
+#fig, ax = plt.subplots()
+#cax = ax.imshow(T[:, :, 0], extent=[0, len(x), 0, len(y)], origin='lower', aspect='auto', cmap='hot')
+#cbar = plt.colorbar(cax, ax=ax, label='T [K]')
+
+#ax.set_ylabel('Posición en el largo del río [m]')
+#ax.set_xlabel('Posición en el ancho del río [m]')
+
+#for k in range(len(t)):
+#    cax.set_data(T[:, :, k])  # Actualizar solo los datos de la gráfica
+#    cax.set_clim(vmin=T.min(), vmax=T.max())  # Asegurar que los colores estén bien escalados
+#    plt.title(f'Animación en el tiempo: {t[k]} [s]')
+#    plt.pause(0.1)  # Pausa para que se vea la animación
+
+#plt.show()  # Mantener la animación visible al final
