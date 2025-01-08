@@ -8,7 +8,6 @@ from math import sqrt
 sigma = 5.67*10**(-8)  # Stefan-Boltzmann constant W / m^2*K^4
 V = 1                 # volume of the parallelepiped m^3 
 A = 1                 # Transfer Area m^2
-A_b = 1               # Basal Green Area m^2
 L = 1                 # Characteristic length m
 Gr = 709.84           # effective incident solar radiation W / m^2
 
@@ -33,7 +32,7 @@ h_out     = 0.015292       #  W / m^2 * K
 ## ----- Temperatura -----
 T_soil = 297.15            # K
 T_air  = 298.15            # K
-
+T_av   = 293.15            # K
 
 ## ----- Green Area -----
 # ET_0
@@ -45,13 +44,32 @@ e_0    = 2.338281271      # ** (T) presión de saturación de vapor a temperatur
 e_a    = 1.286054699      # promedio horario de la presión real de vapor  kPa
 u_2    = v_air            # promedio horario de la velocidad del viento  m/s
 
+# Evapotranspiración de referencia
+ET_0 = (0.408*Delta*(Rn - G) + gamma*(37/T_av)*u_2*(e_0-e_a))/(Delta + gamma*(1 + 0.34*u_2))
+print(f'ET_0 = {ET_0}')
+
+# Coeficiente: basal cultivos no estresados
+Kcb  = 0.85                # Basal cultivos no estresados
+Ke   = 0.35                # Evaporación del suelo
+Ks   = 1.025641026         # Factor reducción tranpiración
+
+# Evaporación
+rho_w  = 997.13            # densidad del agua kg/m^3
+lamda  = 2441.7            # Calor latente de vaporización kJ/kg 
+ET_caj = (Ks*Kcb+Ke)*ET_0  # Evapotranspiración ajustada mm/h
+
+#
 ## ----- Pasos -----
 dt = 1  
-dx = 2*v_air*dt
-dy = (4*k_air*dt)**0.5
+dx = 2*v_air*dt           # m
+dy = (4*k_air*dt)**0.5    #
 
-print(f'dx = {dx}')
-print(f'dy = {dy}')
+# ---- Area basal Area Verde ----
+A_b =  dx*3*dy                # Basal Green Area m^2
+# ---- Flujo agua evaporada ---
+m_w        = ET_0*10**(-3)*A_b*rho_w/3500  # kg/s
+print(f'm_w = {m_w}')
+
 
 # --- Vectores y matrices ---
 x = np.arange(0, 100/dx, dx)  # Vector posición en el largo del río [m]
@@ -59,7 +77,7 @@ t = np.arange(0, 100   , dt)  # Vector tiempo [s]
 y = np.arange(0, 100/dy, dy)  # Vector posición en el ancho del río [m]
 
 # %% Inicialización de la malla
-T = np.ones((len(x), len(y),len(t))) * 293  # Temp. inicial homogénea (293 K)
+T = np.ones((len(x), len(y),len(t))) * 295  # Temp. inicial homogénea (293 K)
 
 # Condicion de borde más caliente.
 for k in range(0, int(len(t)/2)):
