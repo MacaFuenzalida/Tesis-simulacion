@@ -149,46 +149,80 @@ else:
     raise ValueError("El número de celdas en la periferia es cero.")
 
 
-
 # Modificar la matriz T para asignar T_AV en el área verde
-for i in range(AV.shape[0]):
-    for j in range(AV.shape[1]):
-        if AV[i, j] == 1:  # Si la celda es parte del área verde
-            T[i, j, 0] = T_av
+#for i in range(AV.shape[0]):
+#    for j in range(AV.shape[1]):
+#        if AV[i, j] == 1:  # Si la celda es parte del área verde
+#            T[i, j, :] = T_av
           
+# --- Completar la matriz A con diferencias finitas ---
+#for k in range(1, len(t) - 1):  # Iterar en el tiempo
+#    for j in range(1, len(y) - 1):
+#        for i in range(1, len(x)):  # Empezar desde i=1 para evitar problemas con i-1
+#            #Término radiación del suelo
+#            rad_suelo = A*e_soil*sigma*(T_soil**4 - T[i, j, k]**4)
+
+            # Albedo , absorbancias, reflectancia
+#            rad_solar = a_soil*tau*Gr*A - alpha_soil*tau*Gr*A + alpha_air*Gr*A - rho_air*Gr*A
+
+            # Covection
+#           convec = - h_out*A*(T[i,j,k] - T_air)
+        
+            # Difusión
+#            advec = -rho*cp*A*v_air*(1/dx)*(T[i,j,k] - T[i-1 , j, k])
+
+            # Conduction 
+#            cond = k_air*V*(1/dy**2)*(T[i, j+1, k] - 2*T[i, j, k] + T[i, j-1, k])         
+
+            # TOTAL
+#            T[i, j, k + 1] = T[i, j, k] + dt/(rho*cp*V)*(rad_suelo + rad_solar + convec + advec + cond)
+
+            # Condición de borde en la periferia del área verde
+#            if periferia_AV[i, j] == 1:  # Si estamos en una celda de la periferia del área verde
+#                T[i, j, k + 1] += -m_wn * lamda  # Agregar el calor de cambio de fase
+            
+# Mantener la temperatura fija en el área verde
+#for i_av in range(AV.shape[0]):
+#    for j_av in range(AV.shape[1]):
+#        if AV[i_av, j_av] == 1:  # Si es parte del área verde
+#            T[i_av, j_av, :] = T_av  # Sobrescribir con temperatura fija
 
 # --- Completar la matriz A con diferencias finitas ---
 for k in range(1, len(t) - 1):  # Iterar en el tiempo
     for j in range(1, len(y) - 1):
         for i in range(1, len(x)):  # Empezar desde i=1 para evitar problemas con i-1
-            #Término radiación del suelo
-            rad_suelo = A*e_soil*sigma*(T_soil**4 - T[i, j, k]**4)
+            
+            # Omitir el cálculo en las celdas del área verde
+            if AV[i, j] == 1:
+                continue
+            
+            # Término radiación del suelo
+            rad_suelo = A * e_soil * sigma * (T_soil**4 - T[i, j, k]**4)
 
-            # Albedo , absorbancias, reflectancia
-            rad_solar = a_soil*tau*Gr*A - alpha_soil*tau*Gr*A + alpha_air*Gr*A - rho_air*Gr*A
+            # Albedo, absorbancias, reflectancia
+            rad_solar = (a_soil * tau * Gr * A - alpha_soil * tau * Gr * A + alpha_air * Gr * A - rho_air * Gr * A)
 
-            # Covection
-            convec = - h_out*A*(T[i,j,k] - T_air)
+            # Convección
+            convec = - h_out * A * (T[i, j, k] - T_air)
         
-            # Difusión
-            advec = -rho*cp*A*v_air*(1/dx)*(T[i,j,k] - T[i-1 , j, k])
+            # Difusión (Advección)
+            advec = -rho * cp * A * v_air * (1 / dx) * (T[i, j, k] - T[i - 1, j, k])
 
-            # Conduction 
-            cond = k_air*V*(1/dy**2)*(T[i, j+1, k] - 2*T[i, j, k] + T[i, j-1, k])         
+            # Conducción 
+            cond = k_air * V * (1 / dy**2) * (T[i, j + 1, k] - 2 * T[i, j, k] + T[i, j - 1, k])         
 
             # TOTAL
-            T[i, j, k + 1] = T[i, j, k] + dt/(rho*cp*V)*(rad_suelo + rad_solar + convec + advec + cond)
+            T[i, j, k + 1] = T[i, j, k] + dt / (rho * cp * V) * (rad_suelo + rad_solar + convec + advec + cond)
 
             # Condición de borde en la periferia del área verde
             if periferia_AV[i, j] == 1:  # Si estamos en una celda de la periferia del área verde
                 T[i, j, k + 1] += -m_wn * lamda  # Agregar el calor de cambio de fase
-            
-# Mantener la temperatura fija en el área verde
+    
+ # Mantener la temperatura fija en el área verde
 for i_av in range(AV.shape[0]):
     for j_av in range(AV.shape[1]):
         if AV[i_av, j_av] == 1:  # Si es parte del área verde
             T[i_av, j_av, :] = T_av  # Sobrescribir con temperatura fija
-
 
 
 # %% Graficar y animar
