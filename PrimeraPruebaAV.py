@@ -179,7 +179,7 @@ for k in range(1, len(t) - 1):  # Iterar en el tiempo
             # TOTAL
             T[i, j, k + 1] = T[i, j, k] + dt/(rho*cp*V)*(rad_suelo + rad_solar + convec + advec + cond)
 
-            # Nueva condición de borde en la periferia del área verde
+            # Condición de borde en la periferia del área verde
             if periferia_AV[i, j] == 1:  # Si estamos en una celda de la periferia del área verde
                 T[i, j, k + 1] += -m_wn * lamda  # Agregar el calor de cambio de fase
             
