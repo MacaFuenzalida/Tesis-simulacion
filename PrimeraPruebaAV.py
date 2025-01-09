@@ -64,17 +64,12 @@ dt = 1
 dx = 2*v_air*dt           # m
 dy = (4*k_air*dt)**0.5    #
 
-# ---- Area basal Area Verde ----
-A_b =  dx*3*dy                # Basal Green Area m^2
-# ---- Flujo agua evaporada ---
-m_w        = ET_0*10**(-3)*A_b*rho_w/3500  # kg/s
-print(f'm_w = {m_w}')
-
-
+print(f'{dx}')
+print(f'{dy}')
 # --- Vectores y matrices ---
-x = np.arange(0, 100/dx, dx)  # Vector posición en el largo del río [m]
-t = np.arange(0, 100   , dt)  # Vector tiempo [s]
-y = np.arange(0, 100/dy, dy)  # Vector posición en el ancho del río [m]
+x = np.arange(0, 60, dx)  # Vector posición en el largo del río [m]
+t = np.arange(0, 100, dt)  # Vector tiempo [s]
+y = np.arange(0, 6, dy)  # Vector posición en el ancho del río [m]
 
 # %% Inicialización de la malla
 T = np.ones((len(x), len(y),len(t))) * 295  # Temp. inicial homogénea (293 K)
@@ -83,6 +78,68 @@ T = np.ones((len(x), len(y),len(t))) * 295  # Temp. inicial homogénea (293 K)
 for k in range(0, int(len(t)/2)):
     for j in range(0, len(y)):
         T[0,j,k]=300     
+
+# ----- Condición de borde Área Verde ------
+
+# Area basal Area Verde
+A_b =  dx*3*dy                # Basal Green Area m^2
+# Flujo agua evaporada 
+m_w        = ET_0*10**(-3)*A_b*rho_w/3500  # kg/s
+print(f'm_w = {m_w}')
+
+## Matriz de ceros 
+AV = np.zeros((len(x),len(y)))
+
+ancho_AV  = 1      #Dimensiones área verde
+altura_AV = 3      #Dimensiones área verde
+
+## Posición área verde
+# Central
+center_x = len(x) // 2
+center_y = len(y) // 2
+
+# Establecer los límites del área verde
+start_x = center_x - ancho_AV // 2
+end_x = center_x + ancho_AV // 2 + 1
+start_y = center_y - altura_AV // 2
+end_y = center_y + altura_AV // 2 + 1
+
+# Asignar la posición del área verde
+AV[start_x:end_x, start_y:end_y] = 1
+
+
+# Borde Área Verde
+# Crear una nueva matriz de ceros con las mismas dimensiones que AV
+periferia_AV = np.zeros_like(AV)
+
+# Iterar para encontrar las celdas fuera del área verde en contacto con el área verde
+for i in range(1, AV.shape[0] - 1):  # Evitar bordes externos
+    for j in range(1, AV.shape[1] - 1):
+        if AV[i, j] == 0:  # Si está fuera del área verde
+            # Verificar si algún vecino inmediato es parte del área verde
+            if (AV[i - 1, j] == 1 or AV[i + 1, j] == 1 or
+                AV[i, j - 1] == 1 or AV[i, j + 1] == 1):
+                periferia_AV[i, j] = 1  # Marcar como parte de la periferia
+
+# Visualizar las matrices de Área Verde y Periferia
+fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+
+# Mostrar el Área Verde (AV)
+ax[0].imshow(AV, cmap='Greens', origin='lower', aspect='auto')
+ax[0].set_title("Área Verde (AV)")
+ax[0].set_xlabel("Posición y")
+ax[0].set_ylabel("Posición x")
+ax[0].grid(visible=True, color='black', linestyle='--', linewidth=0.5)
+
+# Mostrar la periferia del Área Verde (periferia_AV)
+ax[1].imshow(periferia_AV, cmap='Reds', origin='lower', aspect='auto')
+ax[1].set_title("Periferia del Área Verde (Periferia_AV)")
+ax[1].set_xlabel("Posición y")
+ax[1].set_ylabel("Posición x")
+ax[1].grid(visible=True, color='black', linestyle='--', linewidth=0.5)
+
+plt.tight_layout()
+plt.show()
 
 
 # --- Completar la matriz A con diferencias finitas ---
@@ -108,17 +165,19 @@ for k in range(1, len(t) - 1):  # Iterar en el tiempo
             T[i, j, k + 1] = T[i, j, k] + dt/(rho*cp*V)*(rad_suelo + rad_solar + convec + advec + cond)
 
 # %% Graficar y animar
-fig, ax = plt.subplots()
-cax = ax.imshow(T[:, :, 0].T, extent=[0, len(x), 0, len(y)], origin='lower', aspect='auto', cmap='hot')
-cbar = plt.colorbar(cax, ax=ax, label='T [K]')
+#fig, ax = plt.subplots()
+#cax = ax.imshow(T[:, :, 0].T, extent=[0, len(x), 0, len(y)], origin='lower', aspect='auto', cmap='hot')
+#cbar = plt.colorbar(cax, ax=ax, label='T [K]')
 
-ax.set_xlabel('Largo del dominio (x) [m]')
-ax.set_ylabel('Ancho del dominio (y) [m]')
+#ax.set_xlabel('Largo del dominio (x) [m]')
+#ax.set_ylabel('Ancho del dominio (y) [m]')
 
-for k in range(len(t)):
-    cax.set_data(T[:, :, k].T)  # Actualizar solo los datos de la gráfica
-    cax.set_clim(vmin=T.min(), vmax=T.max())  # Asegurar que los colores estén bien escalados
-    plt.title(f'Animación en el tiempo: {t[k]} [s]')
-    plt.pause(0.1)  # Pausa para que se vea la animación
+#for k in range(len(t)):
+#    cax.set_data(T[:, :, k].T)  # Actualizar solo los datos de la gráfica
+#    cax.set_clim(vmin=T.min(), vmax=T.max())  # Asegurar que los colores estén bien escalados
+#    plt.title(f'Animación en el tiempo: {t[k]} [s]')
+#    plt.pause(0.1)  # Pausa para que se vea la animación
 
-plt.show()  # Mantener la animación visible al final
+#plt.show()  # Mantener la animación visible al final
+
+
