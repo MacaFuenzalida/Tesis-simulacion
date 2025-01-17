@@ -2,6 +2,37 @@ import numpy as np
 import matplotlib.pyplot as plt
 from math import sqrt
 
+### -------- Viento --------
+# Diccionario para las direcciones del viento y sus ángulos en grados: Rosa de los Vientos
+wind_directions = {
+    "N": 0, "NNE": 22.5, "NE": 45, "ENE": 67.5,
+    "E": 90, "ESE": 112.5, "SE": 135, "SSE": 157.5,
+    "S": 180, "SSW": 202.5, "SW": 225, "WSW": 247.5,
+    "W": 270, "WNW": 292.5, "NW": 315, "NNW": 337.5}
+
+# Función para calcular las componentes de la velocidad
+def calculate_wind_components(v_air, direction):
+
+    # Convertir dirección de texto a ángulo
+    if direction not in wind_directions:
+        raise ValueError(f"Dirección de viento '{direction}' no válida.")
+    
+    theta = np.radians(wind_directions[direction])  # Convertir ángulo a radianes
+    
+    # Descomponer la velocidad en componentes
+    v_x = v_air * np.sin(theta)  # Componente en el eje x
+    v_y = v_air * np.cos(theta)  # Componente en el eje y
+    
+    return v_x, v_y
+
+
+v_air = 10        # Velocidad del viento en m/s
+direction = "NNE"  # Dirección del viento (por ejemplo: "SW")
+
+v_x, v_y = calculate_wind_components(v_air, direction)
+print(f"Velocidad descompuesta: v_x = {v_x:.2f} m/s, v_y = {v_y:.2f} m/s")
+
+
 ### -------- Parámetros --------
 
 ## --- Constantes ---
@@ -24,7 +55,6 @@ tau       = 0.9            # Transmittance
 alpha_air = 0.1            # aborbance
 rho_air   = 0              # reflectance
 Pr        = 0.7296         # Prandtl Number
-v_air     = 10*1000/3600   # velocity air m/s
 k_air     = 0.02551        # Conductivity W / m*K
 
 h_out     = 0.015292       #  W / m^2 * K
@@ -46,7 +76,7 @@ u_2    = v_air            # promedio horario de la velocidad del viento  m/s
 
 # Evapotranspiración de referencia
 ET_0 = (0.408*Delta*(Rn - G) + gamma*(37/T_av)*u_2*(e_0-e_a))/(Delta + gamma*(1 + 0.34*u_2))
-print(f'ET_0 = {ET_0}')
+#print(f'ET_0 = {ET_0}')
 
 # Coeficiente: basal cultivos no estresados
 Kcb  = 0.85                # Basal cultivos no estresados
@@ -58,18 +88,23 @@ rho_w  = 997.13            # densidad del agua kg/m^3
 lamda  = 2441.7            # Calor latente de vaporización kJ/kg 
 ET_caj = (Ks*Kcb+Ke)*ET_0  # Evapotranspiración ajustada mm/h
 
-#
-## ----- Pasos -----
+### ---- PASOS -----
 dt = 1  
-dx = 2*v_air*dt           # m
-dy = (4*k_air*dt)**0.5    #
+if abs(v_x) >= abs(v_y):  # Viento más dominante en el eje x
+    dx = 2 * abs(v_x) * dt
+    dy = (4 * k_air * dt)**0.5
+else:  # Viento más dominante en el eje y
+    dx = (4 * k_air * dt)**0.5
+    dy = 2 * abs(v_y) * dt
+
 
 print(f'{dx}')
 print(f'{dy}')
+
 # --- Vectores y matrices ---
 x = np.arange(0, 60, dx)  # Vector posición en el largo del río [m]
-t = np.arange(0, 100, dt)  # Vector tiempo [s]
-y = np.arange(0, 6, dy)  # Vector posición en el ancho del río [m]
+t = np.arange(0, 80, dt)  # Vector tiempo [s]
+y = np.arange(0, 600, dy)  # Vector posición en el ancho del río [m]
 
 # %% Inicialización de la malla
 T = np.ones((len(x), len(y),len(t))) * 295  # Temp. inicial homogénea (293 K)
@@ -85,13 +120,13 @@ for k in range(0, int(len(t)/2)):
 A_b =  dx*3*dy                # Basal Green Area m^2
 # Flujo agua evaporada 
 m_w        = ET_0*10**(-3)*A_b*rho_w/3500  # kg/s
-print(f'm_w = {m_w}')
+#print(f'm_w = {m_w}')
 
 ## Matriz de ceros 
 AV = np.zeros((len(x),len(y)))
 
-ancho_AV  = 1      #Dimensiones área verde en pixceles
-altura_AV = 3      #Dimensiones área verde en pixceles
+ancho_AV  = 3      #Dimensiones área verde en pixceles
+altura_AV = 1      #Dimensiones área verde en pixceles
 
 ## Posición área verde
 # Centrada
@@ -121,25 +156,6 @@ for i in range(1, AV.shape[0] - 1):  # Evitar bordes externos
                 AV[i, j - 1] == 1 or AV[i, j + 1] == 1):
                 periferia_AV[i, j] = 1  # Marcar como parte de la periferia
 
-# Visualizar las matrices de Área Verde y Periferia
-#fig, ax = plt.subplots(1, 2, figsize=(12, 6))
-
-# Mostrar el Área Verde (AV)
-#ax[0].imshow(AV, cmap='Greens', origin='lower', aspect='auto')
-#ax[0].set_title("Área Verde (AV)")
-#ax[0].set_xlabel("Posición y")
-#ax[0].set_ylabel("Posición x")
-#ax[0].grid(visible=True, color='black', linestyle='--', linewidth=0.5)
-
-# Mostrar la periferia del Área Verde (periferia_AV)
-#ax[1].imshow(periferia_AV, cmap='Reds', origin='lower', aspect='auto')
-#ax[1].set_title("Periferia del Área Verde (Periferia_AV)")
-#ax[1].set_xlabel("Posición y")
-#ax[1].set_ylabel("Posición x")
-#ax[1].grid(visible=True, color='black', linestyle='--', linewidth=0.5)
-
-#plt.tight_layout()
-#plt.show()
 
 # Determinar el número de celdas en la periferia del área verde
 num_celdas_periferia = np.sum(periferia_AV)  # Contar las celdas con valor 1 en periferia_AV
@@ -149,48 +165,10 @@ else:
     raise ValueError("El número de celdas en la periferia es cero.")
 
 
-# Modificar la matriz T para asignar T_AV en el área verde
-#for i in range(AV.shape[0]):
-#    for j in range(AV.shape[1]):
-#        if AV[i, j] == 1:  # Si la celda es parte del área verde
-#            T[i, j, :] = T_av
-          
-# --- Completar la matriz A con diferencias finitas ---
-#for k in range(1, len(t) - 1):  # Iterar en el tiempo
-#    for j in range(1, len(y) - 1):
-#        for i in range(1, len(x)):  # Empezar desde i=1 para evitar problemas con i-1
-#            #Término radiación del suelo
-#            rad_suelo = A*e_soil*sigma*(T_soil**4 - T[i, j, k]**4)
-
-            # Albedo , absorbancias, reflectancia
-#            rad_solar = a_soil*tau*Gr*A - alpha_soil*tau*Gr*A + alpha_air*Gr*A - rho_air*Gr*A
-
-            # Covection
-#           convec = - h_out*A*(T[i,j,k] - T_air)
-        
-            # Difusión
-#            advec = -rho*cp*A*v_air*(1/dx)*(T[i,j,k] - T[i-1 , j, k])
-
-            # Conduction 
-#            cond = k_air*V*(1/dy**2)*(T[i, j+1, k] - 2*T[i, j, k] + T[i, j-1, k])         
-
-            # TOTAL
-#            T[i, j, k + 1] = T[i, j, k] + dt/(rho*cp*V)*(rad_suelo + rad_solar + convec + advec + cond)
-
-            # Condición de borde en la periferia del área verde
-#            if periferia_AV[i, j] == 1:  # Si estamos en una celda de la periferia del área verde
-#                T[i, j, k + 1] += -m_wn * lamda  # Agregar el calor de cambio de fase
-            
-# Mantener la temperatura fija en el área verde
-#for i_av in range(AV.shape[0]):
-#    for j_av in range(AV.shape[1]):
-#        if AV[i_av, j_av] == 1:  # Si es parte del área verde
-#            T[i_av, j_av, :] = T_av  # Sobrescribir con temperatura fija
-
 # --- Completar la matriz A con diferencias finitas ---
 for k in range(1, len(t) - 1):  # Iterar en el tiempo
     for j in range(1, len(y) - 1):
-        for i in range(1, len(x)):  # Empezar desde i=1 para evitar problemas con i-1
+        for i in range(1, len(x) - 1):  # Empezar desde i=1 para evitar problemas con i-1
             
             # Omitir el cálculo en las celdas del área verde
             if AV[i, j] == 1:
@@ -204,15 +182,29 @@ for k in range(1, len(t) - 1):  # Iterar en el tiempo
 
             # Convección
             convec = - h_out * A * (T[i, j, k] - T_air)
-        
-            # Difusión (Advección)
-            advec = -rho * cp * A * v_air * (1 / dx) * (T[i, j, k] - T[i - 1, j, k])
 
-            # Conducción 
-            cond = k_air * V * (1 / dy**2) * (T[i, j + 1, k] - 2 * T[i, j, k] + T[i, j - 1, k])         
+            # Advección en x
+            if v_x > 0:  # Flujo hacia la derecha
+                advec_x = -rho * cp * A * v_x * (T[i, j, k] - T[i-1, j, k]) / dx
+            elif v_x < 0:  # Flujo hacia la izquierda
+                advec_x = -rho * cp * A * v_x * (T[i+1, j, k] - T[i, j, k]) / dx
+            else:  # Sin flujo en x
+                 advec_x = 0
+
+            # Advección en y
+            if v_y > 0:  # Flujo hacia arriba
+               advec_y = -rho * cp * A * v_y * (T[i, j, k] - T[i, j-1, k]) / dy
+            elif v_y < 0:  # Flujo hacia abajo
+               advec_y = -rho * cp * A * v_y * (T[i, j+1, k] - T[i, j, k]) / dy
+            else:  # Sin flujo en y
+               advec_y = 0
+
+            # Difusión
+            diff_x = k_air * V * (T[i+1, j, k] - 2 * T[i, j, k] + T[i-1, j, k]) / dx**2
+            diff_y = k_air * V * (T[i, j+1, k] - 2 * T[i, j, k] + T[i, j-1, k]) / dy**2
 
             # TOTAL
-            T[i, j, k + 1] = T[i, j, k] + dt / (rho * cp * V) * (rad_suelo + rad_solar + convec + advec + cond)
+            T[i, j, k + 1] = (T[i, j, k] + dt / (rho * cp * V) *(rad_suelo + rad_solar + convec + advec_x + advec_y + diff_x + diff_y))        
 
             # Condición de borde en la periferia del área verde
             if periferia_AV[i, j] == 1:  # Si estamos en una celda de la periferia del área verde
