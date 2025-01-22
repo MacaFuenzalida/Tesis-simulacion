@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np 
 import matplotlib.pyplot as plt
 from math import sqrt
 
@@ -27,7 +27,7 @@ def calculate_wind_components(v_air, direction):
 
 
 v_air = 10        # Velocidad del viento en m/s
-direction = "N"  # Dirección del viento (por ejemplo: "SW")
+direction = "S"  # Dirección del viento (por ejemplo: "SW")
 
 v_x, v_y = calculate_wind_components(v_air, direction)
 print(f"Velocidad descompuesta: v_x = {v_x:.2f} m/s, v_y = {v_y:.2f} m/s")
@@ -172,94 +172,49 @@ else:
     raise ValueError("El número de celdas en la periferia es cero.")
 
 
-## DIFERENCIAS FINITAS
-
+# --- Completar la matriz A con diferencias finitas ---
 for k in range(1, len(t) - 1):  # Iterar en el tiempo
-
-    # Mallas auxiliares
-    T_x = np.copy(T[:, :, k])  # Para advección en x y difusión en y
-    T_y = np.copy(T[:, :, k])  # Para advección en y y difusión en x
-
-    # ----- Matriz T_x (advección en x, difusión en y) -----
     for j in range(1, len(y) - 1):
-        for i in range(1, len(x) - 1):
+        for i in range(1, len(x) - 1):  # Empezar desde i=1 para evitar problemas con i-1
+            
             # Omitir el cálculo en las celdas del área verde
             if AV[i, j] == 1:
                 continue
-
-            # Radiación del suelo
+            
+            # Término radiación del suelo
             rad_suelo = A * e_soil * sigma * (T_soil**4 - T[i, j, k]**4)
 
-            # Radiación solar (albedo, absorbancia, reflectancia)
+            # Albedo, absorbancias, reflectancia
             rad_solar = (a_soil * tau * Gr * A - alpha_soil * tau * Gr * A + alpha_air * Gr * A - rho_air * Gr * A)
 
             # Convección
-            convec = -h_out * A * (T[i, j, k] - T_air)
+            convec = - h_out * A * (T[i, j, k] - T_air)
 
             # Advección en x
             if v_x > 0:  # Flujo hacia la derecha
-                advec_x = -rho * cp * A * v_x * (T[i, j, k] - T[max(i-1, 0), j, k]) / dx
+                advec_x = -rho * cp * A * v_x * (T[i, j, k] - T[i-1, j, k]) / dx
             elif v_x < 0:  # Flujo hacia la izquierda
-                advec_x = -rho * cp * A * v_x * (T[min(i+1, len(x)-1), j, k] - T[i, j, k]) / dx
-            else:
-                advec_x = 0
-
-            # Difusión en y
-            diff_y = k_air * V * (T[i, j+1, k] - 2 * T[i, j, k] + T[i, j-1, k]) / dy**2
-
-            # Actualizar T_x
-            T_x[i, j] = (T[i, j, k] + dt / (rho * cp * V) * (advec_x + diff_y + rad_suelo + rad_solar + convec))
-
-    # ----- Matriz T_y (advección en y, difusión en x) -----
-    for j in range(1, len(y) - 1):
-        for i in range(1, len(x) - 1):
-            # Omitir el cálculo en las celdas del área verde
-            if AV[i, j] == 1:
-                continue
-
-            # Radiación del suelo
-            rad_suelo = A * e_soil * sigma * (T_soil**4 - T[i, j, k]**4)
-
-            # Radiación solar (albedo, absorbancia, reflectancia)
-            rad_solar = (a_soil * tau * Gr * A - alpha_soil * tau * Gr * A + alpha_air * Gr * A - rho_air * Gr * A)
-
-            # Convección
-            convec = -h_out * A * (T[i, j, k] - T_air)
+                advec_x = -rho * cp * A * v_x * (T[i+1, j, k] - T[i, j, k]) / dx
+            else:  # Sin flujo en x
+                 advec_x = 0
 
             # Advección en y
             if v_y > 0:  # Flujo hacia arriba
-                advec_y = -rho * cp * A * v_y * (T[i, j, k] - T[i, max(j-1, 0), k]) / dy
+               advec_y = -rho * cp * A * v_y * (T[i, j, k] - T[i, j-1, k]) / dy
             elif v_y < 0:  # Flujo hacia abajo
-                advec_y = -rho * cp * A * v_y * (T[i, min(j+1, len(y)-1), k] - T[i, j, k]) / dy
-            else:
-                advec_y = 0
+               advec_y = -rho * cp * A * v_y * (T[i, j+1, k] - T[i, j, k]) / dy
+            else:  # Sin flujo en y
+               advec_y = 0
 
-            # Difusión en x
+            # Difusión
             diff_x = k_air * V * (T[i+1, j, k] - 2 * T[i, j, k] + T[i-1, j, k]) / dx**2
+            diff_y = k_air * V * (T[i, j+1, k] - 2 * T[i, j, k] + T[i, j-1, k]) / dy**2
 
-            # Actualizar T_y
-            T_y[i, j] = (T[i, j, k] + dt / (rho * cp * V) * (advec_y + diff_x + rad_suelo + rad_solar + convec))
+            # TOTAL
+            T[i, j, k + 1] = (T[i, j, k] + dt / (rho * cp * V) *(rad_suelo + rad_solar + convec + advec_x + advec_y + diff_y + diff_x))        
 
-    # ----- Suma ponderada según la dirección del viento -----
-    # Calcular los pesos basados en la dirección del viento
-    theta = np.radians(wind_directions[direction])
-    weight_x = abs(np.cos(theta))  # Ponderación para T_x
-    weight_y = abs(np.sin(theta))  # Ponderación para T_y
-
-
-    # Normalizar los pesos
-    total_weight = weight_x + weight_y
-    weight_x /= total_weight
-    weight_y /= total_weight
-
-    print(f'{weight_x}')
-    print(f'{weight_y}')
-
-    # Combinar las matrices auxiliares para obtener T[i, j, k+1]
-    T[:, :, k+1] = weight_x * T_x + weight_y * T_y
-    
-    # Condición de borde en la periferia del área verde
-if periferia_AV[i, j] == 1:  # Si estamos en una celda de la periferia del área verde
+            # Condición de borde en la periferia del área verde
+            if periferia_AV[i, j] == 1:  # Si estamos en una celda de la periferia del área verde
                 T[i, j, k + 1] += -m_wn * lamda  # Agregar el calor de cambio de fase
 
 
@@ -287,4 +242,3 @@ for k in range(len(t)):
     plt.pause(0.1)  # Pausa para que se vea la animación
 
 plt.show()  # Mantener la animación visible al final
-
