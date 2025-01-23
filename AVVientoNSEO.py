@@ -1,6 +1,6 @@
 import numpy as np 
 import matplotlib.pyplot as plt
-from math import sqrt
+from math import sqrt, radians, sin, cos
 
 ### -------- Viento --------
 # Diccionario para las direcciones del viento y sus ángulos en grados: Rosa de los Vientos
@@ -27,7 +27,7 @@ def calculate_wind_components(v_air, direction):
 
 
 v_air = 10        # Velocidad del viento en m/s
-direction = "S"  # Dirección del viento (por ejemplo: "SW")
+direction = "N"  # Dirección del viento (por ejemplo: "SW")
 
 v_x, v_y = calculate_wind_components(v_air, direction)
 print(f"Velocidad descompuesta: v_x = {v_x:.2f} m/s, v_y = {v_y:.2f} m/s")
@@ -97,6 +97,7 @@ else:  # Viento más dominante en el eje y
     dx = (4 * k_air * dt)**0.5
     dy = 2 * abs(v_y) * dt
 
+
 # Ajustar dx y dy dinámicamente según las componentes del viento
 #if abs(v_x) >= abs(v_y):  # Viento más dominante en el eje x
 #    dx = max((4 * k_air * dt)**0.5, 2 * abs(v_x) * dt)
@@ -104,9 +105,6 @@ else:  # Viento más dominante en el eje y
 #else:                     # Viento más dominante en el eje y
 #    dx = (4 * k_air * dt)**0.5
 #    dy = max((4 * k_air * dt)**0.5, 2 * abs(v_y) * dt)
-
-print(f'{dx}')
-print(f'{dy}')
 
 # --- Vectores y matrices ---
 x = np.arange(0, 60, dx)  # Vector posición en el largo del río [m]
@@ -132,8 +130,11 @@ m_w        = ET_0*10**(-3)*A_b*rho_w/3500  # kg/s
 ## Matriz de ceros 
 AV = np.zeros((len(x),len(y)))
 
-ancho_AV  = 3      #Dimensiones área verde en pixceles
-altura_AV = 3      #Dimensiones área verde en pixceles
+ancho_AV_m = 3  # Ancho del área verde en metros
+altura_AV_m = 3  # Altura del área verde en metros
+
+ancho_AV = int(ancho_AV_m / dx)  # Convertir a número de celdas
+altura_AV = int(altura_AV_m / dy)  # Convertir a número de celdas
 
 ## Posición área verde
 # Centrada

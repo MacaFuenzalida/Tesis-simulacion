@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from math import sqrt
+from math import sqrt, radians, sin, cos
 
 ### -------- Viento --------
 # Diccionario para las direcciones del viento y sus ángulos en grados: Rosa de los Vientos
@@ -97,14 +97,6 @@ else:  # Viento más dominante en el eje y
     dx = (4 * k_air * dt)**0.5
     dy = 2 * abs(v_y) * dt
 
-# Ajustar dx y dy dinámicamente según las componentes del viento
-#if abs(v_x) >= abs(v_y):  # Viento más dominante en el eje x
-#    dx = max((4 * k_air * dt)**0.5, 2 * abs(v_x) * dt)
-#    dy = (4 * k_air * dt)**0.5
-#else:                     # Viento más dominante en el eje y
-#    dx = (4 * k_air * dt)**0.5
-#    dy = max((4 * k_air * dt)**0.5, 2 * abs(v_y) * dt)
-
 print(f'{dx}')
 print(f'{dy}')
 
@@ -117,9 +109,9 @@ y = np.arange(0, 600, dy)  # Vector posición en el ancho del río [m]
 T = np.ones((len(x), len(y),len(t))) * 295  # Temp. inicial homogénea (293 K)
 
 # Condicion de borde más caliente.
-for k in range(0, int(len(t)/2)):
-    for j in range(0, len(y)):
-        T[0,j,k]=300     
+#for k in range(0, int(len(t)/2)):
+#    for j in range(0, len(y)):
+#        T[0,j,k]=300     
 
 # ----- Condición de borde Área Verde ------
 
@@ -242,28 +234,25 @@ for k in range(1, len(t) - 1):  # Iterar en el tiempo
 
     # ----- Suma ponderada según la dirección del viento -----
     # Calcular los pesos basados en la dirección del viento
-    theta = np.radians(wind_directions[direction])
-    weight_x = abs(np.cos(theta))  # Ponderación para T_x
-    weight_y = abs(np.sin(theta))  # Ponderación para T_y
-
+    theta = radians(wind_directions[direction])
+    weight_x = abs(cos(theta))  # Ponderación para T_x
+    weight_y = abs(sin(theta))  # Ponderación para T_y
 
     # Normalizar los pesos
-    total_weight = weight_x + weight_y
-    weight_x /= total_weight
-    weight_y /= total_weight
-
-    print(f'{weight_x}')
-    print(f'{weight_y}')
+    #total_weight = weight_x + weight_y
+    #weight_x /= total_weight
+    #weight_y /= total_weight
 
     # Combinar las matrices auxiliares para obtener T[i, j, k+1]
     T[:, :, k+1] = weight_x * T_x + weight_y * T_y
-    
+
     # Condición de borde en la periferia del área verde
-if periferia_AV[i, j] == 1:  # Si estamos en una celda de la periferia del área verde
+    for i in range(len(x)):
+        for j in range(len(y)):
+            if periferia_AV[i, j] == 1:  # Si estamos en una celda de la periferia del área verde
                 T[i, j, k + 1] += -m_wn * lamda  # Agregar el calor de cambio de fase
 
-
- # Mantener la temperatura fija en el área verde
+# Mantener la temperatura fija en el área verde
 for i_av in range(AV.shape[0]):
     for j_av in range(AV.shape[1]):
         if AV[i_av, j_av] == 1:  # Si es parte del área verde
