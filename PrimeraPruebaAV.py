@@ -27,7 +27,7 @@ def calculate_wind_components(v_air, direction):
 
 
 v_air = 10        # Velocidad del viento en m/s
-direction = "N"  # Dirección del viento (por ejemplo: "SW")
+direction = "SSE"  # Dirección del viento (por ejemplo: "SW")
 
 v_x, v_y = calculate_wind_components(v_air, direction)
 print(f"Velocidad descompuesta: v_x = {v_x:.2f} m/s, v_y = {v_y:.2f} m/s")
@@ -89,19 +89,79 @@ lamda  = 2441.7            # Calor latente de vaporización kJ/kg
 ET_caj = (Ks*Kcb+Ke)*ET_0  # Evapotranspiración ajustada mm/h
 
 ### ---- PASOS -----
-dt = 1  
-if abs(v_x) >= abs(v_y):  # Viento más dominante en el eje x
+## Separar cuando estoy en los ejes y cuando no y desde ahi elegir los dx y dy que cumplan todas las inecuaciones
+dt = 0.5  
+#if abs(v_x) >= abs(v_y):  # Viento más dominante en el eje x
+#    dx = 2 * abs(v_x) * dt 
+#    dy = (4 * k_air * dt)**0.5
+#else:                     # Viento más dominante en el eje y
+#    dx = (4 * k_air * dt)**0.5
+#    dy = 2 * abs(v_y) * dt
+
+#print(f'{dx}')
+#print(f'{dy}')
+
+theta_deg = wind_directions[direction]  # Obtener el ángulo en grados
+
+# Ver si estamos alineados con un eje
+alineado_x = (theta_deg == 90 or theta_deg == 270)  # Estrictamente en el eje x
+alineado_y = (theta_deg == 0 or theta_deg == 180)  # Estrictamente en el eje y
+
+if alineado_x:
+    # Cuando el viento está alineado al eje X, seguimos con los pasos normales
     dx = 2 * abs(v_x) * dt
-    dy = (4 * k_air * dt)**0.5
-else:  # Viento más dominante en el eje y
-    dx = (4 * k_air * dt)**0.5
+    dy = (4 * k_air * dt) ** 0.5
+
+elif alineado_y:
+    # Cuando el viento está alineado al eje Y, seguimos con los pasos normales
+    dx = (4 * k_air * dt) ** 0.5
     dy = 2 * abs(v_y) * dt
 
-print(f'{dx}')
-print(f'{dy}')
+else:
+    # Cuando el viento NO está alineado con un eje, calcular dx y dy cumpliendo las 6 inecuaciones.
+
+    # Calcular dx y dy usando igualdad en las ecuaciones
+    dx_1 = 2 * abs(v_x) * dt  # De la ecuación ν_x = 1/2
+    dx_2 = (4 * k_air * dt) ** 0.5  # De la ecuación r_x = 1/4
+
+    dy_1 = 2 * abs(v_y) * dt  # De la ecuación ν_y = 1/2
+    dy_2 = (4 * k_air * dt) ** 0.5  # De la ecuación r_y = 1/4
+
+    # Función para verificar estabilidad con dx y dy dados
+    def cumple_estabilidad(dx, dy, dt, v_x, v_y, k_air):
+        nu_x = abs(v_x) * dt / dx
+        r_x = k_air * dt / dx**2
+        nu_y = abs(v_y) * dt / dy
+        r_y = k_air * dt / dy**2
+        return (nu_x <= 0.5 and r_x <= 0.25 and 2 * nu_x**2 <= nu_x + r_y and
+                nu_y <= 0.5 and r_y <= 0.25 and 2 * nu_y**2 <= nu_y + r_x)
+
+    # Probar todas las combinaciones posibles
+    posibles_dx = [dx_1, dx_2]
+    posibles_dy = [dy_1, dy_2]
+
+    dx_final, dy_final = None, None
+
+    for dx in posibles_dx:
+        for dy in posibles_dy:
+            if cumple_estabilidad(dx, dy, dt, v_x, v_y, k_air):
+                dx_final, dy_final = dx, dy
+                break  # Salir del loop si encontramos un valor válido
+        if dx_final is not None:
+            break
+
+    # Verificar si se encontró una combinación válida
+    if dx_final is None or dy_final is None:
+        raise ValueError("No se encontró un dx y dy que cumplan todas las condiciones de estabilidad.")
+
+    dx = dx_final
+    dy = dy_final
+
+print(f"dx elegido: {dx}")
+print(f"dy elegido: {dy}")
 
 # --- Vectores y matrices ---
-x = np.arange(0, 60, dx)  # Vector posición en el largo del río [m]
+x = np.arange(0, 600, dx)  # Vector posición en el largo del río [m]
 t = np.arange(0, 50, dt)  # Vector tiempo [s]
 y = np.arange(0, 600, dy)  # Vector posición en el ancho del río [m]
 
@@ -115,17 +175,20 @@ T = np.ones((len(x), len(y),len(t))) * 295  # Temp. inicial homogénea (293 K)
 
 # ----- Condición de borde Área Verde ------
 
+## Matriz de ceros 
+AV = np.zeros((len(x),len(y)))
+
+ancho_AV_m = 3  # Ancho del área verde en metros
+altura_AV_m = 3  # Altura del área verde en metros
+
 # Area basal Area Verde
-A_b =  dx*3*dy                # Basal Green Area m^2
+A_b =  ancho_AV_m * altura_AV_m                # Basal Green Area m^2
 # Flujo agua evaporada 
 m_w        = ET_0*10**(-3)*A_b*rho_w/3500  # kg/s
 #print(f'm_w = {m_w}')
 
-## Matriz de ceros 
-AV = np.zeros((len(x),len(y)))
-
-ancho_AV  = 3      #Dimensiones área verde en pixceles
-altura_AV = 3      #Dimensiones área verde en pixceles
+ancho_AV = int(ancho_AV_m / dx)  # Convertir a número de celdas
+altura_AV = int(altura_AV_m / dy)  # Convertir a número de celdas
 
 ## Posición área verde
 # Centrada
@@ -201,6 +264,7 @@ for k in range(1, len(t) - 1):  # Iterar en el tiempo
 
             # Actualizar T_x
             T_x[i, j] = (T[i, j, k] + dt / (rho * cp * V) * (advec_x + diff_y + rad_suelo + rad_solar + convec))
+            #print(f'T_x = {T_x[i,j]}')
 
     # ----- Matriz T_y (advección en y, difusión en x) -----
     for j in range(1, len(y) - 1):
@@ -231,12 +295,14 @@ for k in range(1, len(t) - 1):  # Iterar en el tiempo
 
             # Actualizar T_y
             T_y[i, j] = (T[i, j, k] + dt / (rho * cp * V) * (advec_y + diff_x + rad_suelo + rad_solar + convec))
+            #print(f'T_y = {T_y[i,j]}')
 
     # ----- Suma ponderada según la dirección del viento -----
+    ## Ver lo de los cuadrantes (if´s) y que dependenda del angulo así es mas proporcional LINEAL
     # Calcular los pesos basados en la dirección del viento
-    theta = radians(wind_directions[direction])
-    weight_x = abs(cos(theta))  # Ponderación para T_x
-    weight_y = abs(sin(theta))  # Ponderación para T_y
+    #theta = radians(wind_directions[direction])
+    #weight_x = abs(sin(theta))  # Ponderación para T_x
+    #weight_y = abs(cos(theta))  # Ponderación para T_y
 
     # Normalizar los pesos
     #total_weight = weight_x + weight_y
@@ -244,7 +310,46 @@ for k in range(1, len(t) - 1):  # Iterar en el tiempo
     #weight_y /= total_weight
 
     # Combinar las matrices auxiliares para obtener T[i, j, k+1]
+    #T[:, :, k+1] = weight_x * T_x + weight_y * T_y
+
+# ----- Suma ponderada según la dirección del viento -----
+    theta_deg = wind_directions[direction]  # Ángulo en grados
+
+# Inicializar pesos
+    weight_x = 0
+    weight_y = 0
+
+# Calcular los pesos de manera lineal por cuadrantes
+    if 0 <= theta_deg <= 90:  # Cuadrante 1 (N → E)
+        weight_y = 1 - (theta_deg / 90)  # De 1 a 0
+        weight_x = theta_deg / 90        # De 0 a 1
+
+    elif 90 < theta_deg <= 180:  # Cuadrante 2 (E → S)
+        theta_rel = theta_deg - 90
+        weight_x = 1 - (theta_rel / 90)  # De 1 a 0
+        weight_y = theta_rel / 90        # De 0 a 1
+
+    elif 180 < theta_deg <= 270:  # Cuadrante 3 (S → W)
+        theta_rel = theta_deg - 180
+        weight_y = 1 - (theta_rel / 90)  # De 1 a 0
+        weight_x = theta_rel / 90        # De 0 a 1
+
+    elif 270 < theta_deg <= 360:  # Cuadrante 4 (W → N)
+        theta_rel = theta_deg - 270
+        weight_x = 1 - (theta_rel / 90)  # De 1 a 0
+        weight_y = theta_rel / 90        # De 0 a 1
+
+# Casos especiales para ángulos exactos
+    if theta_deg == 0 or theta_deg == 180:  # N o S
+        weight_x = 0
+        weight_y = 1
+    elif theta_deg == 90 or theta_deg == 270:  # E o W
+        weight_x = 1
+        weight_y = 0
+
+# Aplicar la ponderación a las matrices
     T[:, :, k+1] = weight_x * T_x + weight_y * T_y
+
 
     # Condición de borde en la periferia del área verde
     for i in range(len(x)):
