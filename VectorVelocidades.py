@@ -26,15 +26,18 @@ def calculate_wind_components(v_air, direction):
     return v_x, v_y
 
 
-v_air = 5        # Velocidad del viento en m/s
-direction = "ENE"  # Dirección del viento (por ejemplo: "SW")
+### ---- Cargar Vectores de Viento desde Archivo ----
+def cargar_viento_desde_txt(archivo):
+    datos = np.loadtxt(archivo, dtype=str)
+    v_air_vector = datos[:, 0].astype(float)  # Primera columna: velocidades
+    direction_vector = datos[:, 1]  # Segunda columna: direcciones
+    return v_air_vector, direction_vector
 
-v_x, v_y = calculate_wind_components(v_air, direction)
-print(f"Velocidad descompuesta: v_x = {v_x:.2f} m/s, v_y = {v_y:.2f} m/s")
-
+# Cargar datos desde archivo
+archivo_viento = "viento.txt"  # Nombre del archivo
+v_air_vector, direction_vector = cargar_viento_desde_txt(archivo_viento)
 
 ### -------- Parámetros --------
-
 ## --- Constantes ---
 sigma = 5.67*10**(-8)  # Stefan-Boltzmann constant W / m^2*K^4
 V = 1                 # volume of the parallelepiped m^3 
@@ -90,18 +93,7 @@ ET_caj = (Ks*Kcb+Ke)*ET_0  # Evapotranspiración ajustada mm/h
 
 ### ---- PASOS -----
 ## Separar cuando estoy en los ejes y cuando no y desde ahi elegir los dx y dy que cumplan todas las inecuaciones
-dt = 0.5  
-#if abs(v_x) >= abs(v_y):  # Viento más dominante en el eje x
-#    dx = 2 * abs(v_x) * dt 
-#    dy = (4 * k_air * dt)**0.5
-#else:                     # Viento más dominante en el eje y
-#    dx = (4 * k_air * dt)**0.5
-#    dy = 2 * abs(v_y) * dt
-
-#print(f'{dx}')
-#print(f'{dy}')
-
-theta_deg = wind_directions[direction]  # Obtener el ángulo en grados
+dt = 1  
 
 # Ver si estamos alineados con un eje
 alineado_x = (theta_deg == 90 or theta_deg == 270)  # Estrictamente en el eje x
@@ -161,17 +153,14 @@ print(f"dx elegido: {dx}")
 print(f"dy elegido: {dy}")
 
 # --- Vectores y matrices ---
-x = np.arange(0, 60, dx)  # Vector posición en el largo del río [m]
-t = np.arange(0, 50, dt)  # Vector tiempo [s]
-y = np.arange(0, 60, dy)  # Vector posición en el ancho del río [m]
-
-# %% Inicialización de la malla
-T = np.ones((len(x), len(y),len(t))) * 295  # Temp. inicial homogénea (293 K)
-
-# Condicion de borde más caliente.
-#for k in range(0, int(len(t)/2)):
-#    for j in range(0, len(y)):
-#        T[0,j,k]=300     
+num_horas = len(v_air_vector)
+num_x, num_y = 60, 60
+dx, dy = 1, 1
+dt = 1
+x = np.arange(0, num_x, dx)  # Vector posición en x
+t = np.arange(0, num_horas, dt)  # Vector tiempo
+y = np.arange(0, num_y, dy)  # Vector posición en y
+T = np.ones((len(x), len(y), num_horas)) * 295  # Inicialización de temperatura 
 
 # ----- Condición de borde Área Verde ------
 
