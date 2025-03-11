@@ -79,10 +79,10 @@ Delta  = 0.1447326371     # ** (T) pendiente de la curva de presión de saturaci
 gamma  = 0.000665         # constante psicrométrica  kPa / °C
 e_0    = 2.338281271      # ** (T) presión de saturación de vapor a temperatura del aire T kPa
 e_a    = 1.286054699      # promedio horario de la presión real de vapor  kPa
-u_2    = np.mean(v_air_list)            # promedio horario de la velocidad del viento  m/s
+#u_2    = np.mean(v_air_list)            # promedio horario de la velocidad del viento  m/s
 
 # Evapotranspiración de referencia
-ET_0 = (0.408*Delta*(Rn - G) + gamma*(37/T_av)*u_2*(e_0-e_a))/(Delta + gamma*(1 + 0.34*u_2))
+#ET_0 = (0.408*Delta*(Rn - G) + gamma*(37/T_av)*u_2*(e_0-e_a))/(Delta + gamma*(1 + 0.34*u_2))
 #print(f'ET_0 = {ET_0}')
 
 # Coeficiente: basal cultivos no estresados
@@ -93,7 +93,7 @@ Ks   = 1.025641026         # Factor reducción tranpiración ** Sospechoso
 # Evaporación
 rho_w  = 997.13            # densidad del agua kg/m^3
 lamda  = 2441.7            # Calor latente de vaporización kJ/kg 
-ET_caj = (Ks*Kcb+Ke)*ET_0  # Evapotranspiración ajustada mm/h
+#ET_caj = (Ks*Kcb+Ke)*ET_0  # Evapotranspiración ajustada mm/h
 
 ### ---- PASOS -----
 ## Separar cuando estoy en los ejes y cuando no y desde ahi elegir los dx y dy que cumplan todas las inecuaciones
@@ -154,7 +154,7 @@ altura_AV_m = 3  # Altura del área verde en metros
 # Area basal Area Verde
 A_b =  ancho_AV_m * altura_AV_m                # Basal Green Area m^2
 # Flujo agua evaporada 
-m_w        = ET_0*10**(-3)*A_b*rho_w/3500  # kg/s
+#m_w        = ET_0*10**(-3)*A_b*rho_w/3500  # kg/s
 #print(f'm_w = {m_w}')
 
 ancho_AV = int(ancho_AV_m / dx)  # Convertir a número de celdas
@@ -191,10 +191,11 @@ for i in range(1, AV.shape[0] - 1):  # Evitar bordes externos
 
 # Determinar el número de celdas en la periferia del área verde
 num_celdas_periferia = np.sum(periferia_AV)  # Contar las celdas con valor 1 en periferia_AV
-if num_celdas_periferia > 0:
-    m_wn = m_w / num_celdas_periferia  # Distribuir m_w entre las celdas de la periferia
-else:
-    raise ValueError("El número de celdas en la periferia es cero.")
+
+#if num_celdas_periferia > 0:
+#    m_wn = m_w / num_celdas_periferia  # Distribuir m_w entre las celdas de la periferia
+#else:
+#    raise ValueError("El número de celdas en la periferia es cero.")
 
 
 ## DIFERENCIAS FINITAS
@@ -203,6 +204,17 @@ for k in range(1, len(t) - 1):  # Iterar en el tiempo
     hora_actual = (k // (len(t) // num_horas)) % num_horas  # Determina la hora del día
     v_x, v_y = v_x_list[hora_actual], v_y_list[hora_actual]
     print(f"Hora {hora_actual}: v_x = {v_x}, v_y = {v_y}")  # Verificación
+
+    #calculos de evaporación que dependen del viento
+    u_2 = v_air_list[hora_actual]
+    ET_0 = (0.408*Delta*(Rn - G) + gamma*(37/T_av)*u_2*(e_0-e_a))/(Delta + gamma*(1 + 0.34*u_2))
+    ET_caj = (Ks*Kcb+Ke)*ET_0
+    m_w        = ET_0*10**(-3)*A_b*rho_w/3500  # kg/s
+    if num_celdas_periferia > 0:
+        m_wn = m_w / num_celdas_periferia  # Distribuir m_w entre las celdas de la periferia
+    else:
+        raise ValueError("El número de celdas en la periferia es cero.")
+
     # Mallas auxiliares
     T_x = np.copy(T[:, :, k])  # Para advección en x y difusión en y
     T_y = np.copy(T[:, :, k])  # Para advección en y y difusión en x
