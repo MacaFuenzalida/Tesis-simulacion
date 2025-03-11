@@ -2,13 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from math import sqrt, radians, sin, cos
 
-# Función para leer el archivo de velocidades
-def read_wind_data(filename):
-    data = np.loadtxt(filename, delimiter=',', dtype=str)  # Leer datos como texto
-    v_air = data[:, 0].astype(float)  # Convertir la primera columna a números
-    directions = data[:, 1]  # La segunda columna ya es texto
-    return v_air, directions
-
 ### -------- Viento --------
 # Diccionario para las direcciones del viento y sus ángulos en grados: Rosa de los Vientos
 wind_directions = {
@@ -33,15 +26,16 @@ def calculate_wind_components(v_air, direction):
     return v_x, v_y
 
 
-# Cargar datos de viento
-filename = "wind_data.txt"
-v_air_list, direction_list = read_wind_data(filename)
+# Definir velocidades y direcciones para cada mitad del tiempo
+v_air_1, direction_1 = 8, "E"  # Primera mitad
+v_air_2, direction_2 = 7, "S"   # Segunda mitad
 
-# Calcular vx y vy para cada hora
-dx_list, dy_list = [], []
-v_x_list, v_y_list = [], []
+v_x1, v_y1 = calculate_wind_components(v_air_1, direction_1)
+v_x2, v_y2 = calculate_wind_components(v_air_2, direction_2)
+
 
 ### -------- Parámetros --------
+
 ## --- Constantes ---
 sigma = 5.67*10**(-8)  # Stefan-Boltzmann constant W / m^2*K^4
 V = 1                 # volume of the parallelepiped m^3 
@@ -79,7 +73,7 @@ Delta  = 0.1447326371     # ** (T) pendiente de la curva de presión de saturaci
 gamma  = 0.000665         # constante psicrométrica  kPa / °C
 e_0    = 2.338281271      # ** (T) presión de saturación de vapor a temperatura del aire T kPa
 e_a    = 1.286054699      # promedio horario de la presión real de vapor  kPa
-u_2    = np.mean(v_air_list)            # promedio horario de la velocidad del viento  m/s
+u_2    = v_air_1            # promedio horario de la velocidad del viento  m/s
 
 # Evapotranspiración de referencia
 ET_0 = (0.408*Delta*(Rn - G) + gamma*(37/T_av)*u_2*(e_0-e_a))/(Delta + gamma*(1 + 0.34*u_2))
@@ -95,16 +89,29 @@ rho_w  = 997.13            # densidad del agua kg/m^3
 lamda  = 2441.7            # Calor latente de vaporización kJ/kg 
 ET_caj = (Ks*Kcb+Ke)*ET_0  # Evapotranspiración ajustada mm/h
 
-### ---- PASOS -----
-## Separar cuando estoy en los ejes y cuando no y desde ahi elegir los dx y dy que cumplan todas las inecuaciones
+### ---- PASOS ----- ###
 dt = 0.5  
+max_intentos = 100
+intentos = 0
+#theta_deg = wind_directions[direction]  # Obtener el ángulo en grados
 
-for i in range(len(v_air_list)):
-    v_x, v_y = calculate_wind_components(v_air_list[i], direction_list[i])
-    v_x_list.append(v_x)
-    v_y_list.append(v_y)
+dx_1_v1 = 2 * abs(v_x1) * dt  # De la ecuación ν_x = 1/2 para v1
+dx_2_v1 = (4 * k_air * dt) ** 0.5  # De la ecuación r_x = 1/4 para v1
+dy_1_v1 = 2 * abs(v_y1) * dt  # De la ecuación ν_y = 1/2 para v1
+dy_2_v1 = (4 * k_air * dt) ** 0.5  # De la ecuación r_y = 1/4 para v1
 
-# Cálculo de dx y dy considerando estabilidad
+dx_1_v2 = 2 * abs(v_x2) * dt  # De la ecuación ν_x = 1/2 para v2
+dx_2_v2 = (4 * k_air * dt) ** 0.5  # De la ecuación r_x = 1/4 para v2
+dy_1_v2 = 2 * abs(v_y2) * dt  # De la ecuación ν_y = 1/2 para v2
+dy_2_v2 = (4 * k_air * dt) ** 0.5  # De la ecuación r_y = 1/4 para v2
+
+# Combinar todas las opciones de dx y dy
+posibles_dx = [dx_1_v1, dx_2_v1, dx_1_v2, dx_2_v2]
+posibles_dy = [dy_1_v1, dy_2_v1, dy_1_v2, dy_2_v2]
+print(f"posinles_dx: {posibles_dx}")
+print(f"posinles_dy: {posibles_dy}")
+
+# Buscar dx y dy que funcionen para ambas velocidades
 def cumple_estabilidad(dx, dy, dt, v_x, v_y, k_air):
     nu_x = abs(v_x) * dt / dx
     r_x = k_air * dt / dx**2
@@ -113,35 +120,34 @@ def cumple_estabilidad(dx, dy, dt, v_x, v_y, k_air):
     return (nu_x <= 0.5 and r_x <= 0.25 and 2 * nu_x**2 <= nu_x + r_y and
             nu_y <= 0.5 and r_y <= 0.25 and 2 * nu_y**2 <= nu_y + r_x)
 
-# Generar todos los posibles dx y dy
-dx_options = [2 * abs(v_x) * dt for v_x in v_x_list] + [(4 * k_air * dt) ** 0.5] * len(v_x_list)
-dy_options = [2 * abs(v_y) * dt for v_y in v_y_list] + [(4 * k_air * dt) ** 0.5] * len(v_y_list)
-
-# Selección de dx y dy que cumplen estabilidad
 dx_final, dy_final = None, None
 
-for dx in sorted(dx_options, reverse=True):
-    for dy in sorted(dy_options, reverse=True):
-        if all(cumple_estabilidad(dx, dy, dt, v_x_list[i], v_y_list[i], k_air) for i in range(len(v_x_list))):
-            dx_final, dy_final = dx, dy
+for dx in posibles_dx:
+        for dy in posibles_dy:
+            # Verificar si cumple las condiciones de estabilidad para ambas velocidades
+            if (cumple_estabilidad(dx, dy, dt, v_x1, v_y1, k_air) and
+                cumple_estabilidad(dx, dy, dt, v_x2, v_y2, k_air)):
+                dx_final, dy_final = dx, dy
+                break  # Salir del loop si encontramos un valor válido
+        if dx_final is not None:
             break
-    if dx_final is not None:
-        break
 
-# Verificar si se encontró un dx y dy adecuados
+# Verificar si se encontró una combinación válida
 if dx_final is None or dy_final is None:
-    raise ValueError("No se encontró un dx y dy que cumplan todas las condiciones de estabilidad para todas las velocidades.")
+        raise ValueError("No se encontró un dx y dy que cumplan todas las condiciones de estabilidad para ambas velocidades.")
 
 dx, dy = dx_final, dy_final
-print(f"dx elegido: {dx_final}")
-print(f"dy elegido: {dy_final}")
+print(f"dx elegido: {dx}")
+print(f"dy elegido: {dy}")
+
 
 # --- Vectores y matrices ---
-num_horas = len(v_air_list)
-x = np.arange(0, 100, dx)  # Vector posición en x
-t = np.arange(0, 20, dt)  # Vector tiempo
-y = np.arange(0, 100, dy)  # Vector posición en y
-T = np.ones((len(x), len(y), len(t))) * 295  # Inicialización de temperatura 
+x = np.arange(0, 60, dx)  # Vector posición en el largo del río [m]
+t = np.arange(0, 50, dt)  # Vector tiempo [s]
+y = np.arange(0, 60, dy)  # Vector posición en el ancho del río [m]
+
+# %% Inicialización de la malla
+T = np.ones((len(x), len(y),len(t))) * 295  # Temp. inicial homogénea (293 K)  
 
 # ----- Condición de borde Área Verde ------
 
@@ -199,10 +205,12 @@ else:
 
 ## DIFERENCIAS FINITAS
 
-for k in range(1, len(t) - 1):  # Iterar en el tiempo
-    hora_actual = (k // (len(t) // num_horas)) % num_horas  # Determina la hora del día
-    v_x, v_y = v_x_list[hora_actual], v_y_list[hora_actual]
-    print(f"Hora {hora_actual}: v_x = {v_x}, v_y = {v_y}")  # Verificación
+for k in range(1, len(t) - 1): # Iterar en el tiempo
+    if k < len(t) // 2:
+        v_x, v_y = v_x1, v_y1
+    else:
+        v_x, v_y = v_x2, v_y2
+
     # Mallas auxiliares
     T_x = np.copy(T[:, :, k])  # Para advección en x y difusión en y
     T_y = np.copy(T[:, :, k])  # Para advección en y y difusión en x
@@ -270,7 +278,7 @@ for k in range(1, len(t) - 1):  # Iterar en el tiempo
             #print(f'T_y = {T_y[i,j]}')
 
 # ----- Suma ponderada según la dirección del viento -----
-    theta_deg = wind_directions[direction_list[hora_actual]]  # Ángulo en grados
+    theta_deg = wind_directions[direction_2]  # Ángulo en grados
 
 # Inicializar pesos
     weight_x = 0
@@ -331,19 +339,10 @@ ax.set_xlabel('Largo del dominio (x) [m]')
 ax.set_ylabel('Ancho del dominio (y) [m]')
 
 
-
-for k in range(1, len(t)):
-    hora_actual = (k // (len(t) // num_horas)) % num_horas  # Determina la hora del día
-    v_x, v_y = v_x_list[hora_actual], v_y_list[hora_actual]
-    direction = direction_list[hora_actual]  # Obtener la dirección del viento
-    
-    print(f"Hora {hora_actual}: v_x = {v_x}, v_y = {v_y}, Dirección: {direction}")  # Verificación
-    
+for k in range(len(t)):
     cax.set_data(T[:, :, k].T)  # Actualizar solo los datos de la gráfica
     cax.set_clim(vmin=T.min(), vmax=T.max())  # Asegurar que los colores estén bien escalados
-    plt.title(f'Hora: {hora_actual}, Dirección del viento: {direction}')
+    plt.title(f'Animación en el tiempo: {t[k]} [s]')
     plt.pause(0.1)  # Pausa para que se vea la animación
 
-plt.show()
-
- 
+plt.show()  # Mantener la animación visible al final
