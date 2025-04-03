@@ -344,7 +344,7 @@ t_data = np.random.choice(t, size=n_datos)
 T_obs = [T_simulado[int(xi/dx), int(yi/dy), int(ti/dt)] + np.random.normal(0, 0.5)
          for xi, yi, ti in zip(x_data, y_data, t_data)]
 
-def error_function(params, x_data, y_data, t_data, T_obs, v_air_list, direction_list, dx, dy, dt, x, y, t):
+def error_function_scalar(params, x_data, y_data, t_data, T_obs, v_air_list, direction_list, dx, dy, dt, x, y, t):
     
     T_model = run_simulation(constants, params, v_air_list, direction_list, dx, dy, dt, x, y, t)
   
@@ -364,24 +364,31 @@ def error_function(params, x_data, y_data, t_data, T_obs, v_air_list, direction_
 
         # Calcular error y guardar
         error_i = T_model_i - T_obs_i
-        errores.append(error_i)
-
-    return errores  # Arreglo que el optimizador tratará de hacer cero
-
+        errores.append(error_i**2)
+    mse = np.mean(errores)
+    return np.sqrt(mse)  # Arreglo que el optimizador tratará de hacer cero
+    
 # ------------------------------------------------------------------------------------------
 ## --------------------------------- OPTIMIZADOR -----------------------------------------
 
-from scipy.optimize import least_squares
+from scipy.optimize import dual_annealing
 
 params0 = [0.85, 0.35, 1, 0.01]  # Valores iniciales
 
-lower_bounds = [0.5, 0.0, 0.9, 0.005]   # Límites inferiores realistas
-upper_bounds = [1.2, 1.0, 1.2, 0.05]   # Límites superiores realistas
+bounds = [(0.5, 1.2),    # Kcb
+          (0.0, 1.0),    # Ke
+          (0.9, 1.2),    # Ks
+          (0.005, 0.05)] # h_out
 
 
-res = least_squares(error_function,params0,
-    args=(x_data, y_data, t_data, T_obs, v_air_list, direction_list, dx, dy, dt, x, y, t), bounds=(lower_bounds, upper_bounds))
+res = dual_annealing(error_function_scalar, bounds,
+    args=(x_data, y_data, t_data, T_obs, v_air_list, direction_list, dx, dy, dt, x, y, t),
+    maxiter=100,
+    seed=42,
+    no_local_search=False,  # Puedes cambiar a True si no quieres refinamiento final
+)
 
-# Ver resultado
+# Resultados
+print("\n🔥 Resultado con Dual Annealing:")
 print("Parámetros ajustados:", res.x)
-print("Error final:", res.cost)
+print("Error final (RMSE):", res.fun) 
