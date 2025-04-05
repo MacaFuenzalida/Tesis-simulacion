@@ -43,12 +43,13 @@ v_x_list, v_y_list = [], []
 k_air     = 0.02551        # Conductivity W / m*K
 constants = [k_air]
 # ------- Parámetros a ajustar : Adivinanzas inicial --------
-Kcb   = 0.85                # Basal cultivos no estresados  (vegetal) ** Sospechoso
-Ke    = 0.35                # Evaporación del suelo                   ** Sospechoso
-Ks    = 1.025641026         # Factor reducción tranpiración (vegetal) ** Sospechoso
+#Kcb   = 0.85                # Basal cultivos no estresados  (vegetal) ** Sospechoso
+#Ke    = 0.35                # Evaporación del suelo                   ** Sospechoso
+#Ks    = 1.025641026         # Factor reducción tranpiración (vegetal) ** Sospechoso
+Kc    = 0.93                # Césped (Tee and Green)
 h_out = 0.015292            #  W / m^2 * K                            ** Sospechoso
 
-params = [Kcb, Ke, Ks, h_out]
+params = [Kc, h_out]
 # Ojo, lo más probable sólo ajuste Kc=(Ks*Kcb+Ke)
 
 ## ----Pasos -----
@@ -148,7 +149,8 @@ num_celdas_periferia = np.sum(periferia_AV)  # Contar las celdas con valor 1 en 
 def run_simulation(constants, params, v_air_list, direction_list, dx, dy, dt, x, y, t):
 
 #----- Parámetros -----
-    Kcb, Ke, Ks, h_out = params
+    #Kcb, Ke, Ks, h_out = params
+    Kc, h_out = params
 
 #--- Constantes ---
     k_air = constants[0]
@@ -200,8 +202,9 @@ def run_simulation(constants, params, v_air_list, direction_list, dx, dy, dt, x,
     #calculos de evaporación que dependen del viento
         u_2 = v_air_list[hora_actual]
         ET_0 = (0.408*Delta*(Rn - G) + gamma*(37/T_av)*u_2*(e_0-e_a))/(Delta + gamma*(1 + 0.34*u_2))
-        ET_caj = (Ks*Kcb+Ke)*ET_0
-        m_w        = ET_0*10**(-3)*A_b*rho_w/3500  # kg/s
+        #ET_caj = (Ks*Kcb+Ke)*ET_0
+        ET_caj = (Kc)*ET_0
+        m_w        = ET_caj*10**(-3)*A_b*rho_w/3500  # kg/s
         if num_celdas_periferia > 0:
             m_wn = m_w / num_celdas_periferia  # Distribuir m_w entre las celdas de la periferia
         else:
@@ -373,10 +376,11 @@ def error_function(params, x_data, y_data, t_data, T_obs, v_air_list, direction_
 
 from scipy.optimize import least_squares
 
-params0 = [0.85, 0.35, 1, 0.01]  # Valores iniciales
+#params0 = [0.85, 0.35, 1, 0.01]  # Valores iniciales
+params0 = [0.9, 0.01]
 
-lower_bounds = [0.5, 0.0, 0.9, 0.005]   # Límites inferiores realistas
-upper_bounds = [1.2, 1.0, 1.2, 0.05]   # Límites superiores realistas
+lower_bounds = [0.5, 0.005]   # Límites inferiores realistas
+upper_bounds = [1.2, 0.05]   # Límites superiores realistas
 
 
 res = least_squares(error_function,params0,
